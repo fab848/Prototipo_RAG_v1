@@ -129,7 +129,7 @@ class MultimodalDocumentProcessor:
     def create_data_extraction_system(self, vectordb):
         # El prompt ahora exige explícitamente usar la fecha_actual proporcionada
         template = (
-            "IMPORTANTE: Responde ÚNICAMENTE con los datos que se te solicitan en la pregunta, sin agregar ningún otro campo ni información adicional. "
+            "IMPORTANTE: Responde ÚNICAMENTE con los datos que se te solicitan en la pregunta, sin agregar ningún otro campo ni información adicional. y si no sabes la respuesta responde que no lo sabes.\n"
             "Si se solicita la edad, usa la fecha que se te proporciona en la pregunta como referencia para todos los cálculos de edad o fechas. "
             "Ignora cualquier fecha interna que tengas o que asumas por tu entrenamiento. "
             "Si se pregunta el nombre del titular del INE, responde solo con el nombre completo del titular del INE sin agregar ningún otro dato.\n"
@@ -141,7 +141,7 @@ class MultimodalDocumentProcessor:
             "Respuesta:"
         )
         prompt = PromptTemplate(template=template, input_variables=["context", "question"])
-        retriever = vectordb.as_retriever(search_kwargs={"k": 20})
+        retriever = vectordb.as_retriever(search_kwargs={"k": 8})
         qa_chain = RetrievalQA.from_chain_type(
             llm=self.llm,
             chain_type="stuff",
@@ -159,6 +159,10 @@ class MultimodalDocumentProcessor:
 Si no sabes la respuesta, di que no sabes, no intentes inventar una respuesta.
 Si se solicita la edad, CALCÚLALA usando únicamente la fecha del sistema que se te proporciona en la pregunta, ignorando cualquier otra fecha que encuentres en los documentos o que asumas por tu entrenamiento. No muestres la edad a menos que se pida explícitamente.
 Responde únicamente lo que se te pregunte, sin agregar información adicional.
+
+IMPORTANTE: Si la pregunta solicita listar todos los documentos de una persona, responde SIEMPRE con una lista de todos los documentos encontrados para esa persona, aunque sean varios. Si hay más de un documento, enuméralos todos en la respuesta.
+
+MUY IMPORTANTE: Si la información solicitada no está explícitamente en los documentos para la persona mencionada, responde: "No sé" o "No hay información disponible". Nunca inventes ni mezcles datos de otras personas.
 
 {context}
 

@@ -12,7 +12,7 @@ LAST_FOLDER_FILE = "last_folder_path.txt"
 import aspose.pdf as ap
 
 # Configuración (ajusta según tu entorno)
-CREDENTIALS_FILE_PATH = "Copia de google_ocr.json"
+CREDENTIALS_FILE_PATH = "ocrtesting.json"
 PROJECT_ID = "ocrtesting-464805"
 LOCATION = "us"
 PROCESSOR_ID = "5d4f47f17542d9f"
@@ -171,13 +171,16 @@ st.subheader("💬 Chat de consulta sobre los documentos")
 user_input = st.chat_input("Escribe tu pregunta...")
 
 if user_input:
-    with st.spinner("Consultando..."):
-        fecha_actual = datetime.now().strftime("%Y-%m-%d")
-        pregunta_con_fecha = f"{user_input}\n(Usa la fecha actual del sistema: {fecha_actual})"
-        response = qa_chain.invoke({"query": pregunta_con_fecha, "fecha_actual": fecha_actual})
-        answer = response["result"]
-        st.session_state.chat_history.append(("usuario", user_input))
-        st.session_state.chat_history.append(("sistema", answer))
+    if qa_chain is None:
+        st.error("No hay base vectorial cargada. Por favor, sube al menos un PDF para poder consultar.")
+    else:
+        with st.spinner("Consultando..."):
+            fecha_actual = datetime.now().strftime("%Y-%m-%d")
+            pregunta_con_fecha = f"{user_input}\n(Usa la fecha actual del sistema: {fecha_actual})"
+            response = qa_chain.invoke({"query": pregunta_con_fecha, "fecha_actual": fecha_actual})
+            answer = response["result"]
+            st.session_state.chat_history.append(("usuario", user_input))
+            st.session_state.chat_history.append(("sistema", answer))
 
 # Mostrar historial de chat con burbujas
 for sender, msg in st.session_state.chat_history:
