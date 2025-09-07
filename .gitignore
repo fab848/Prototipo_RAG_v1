@@ -1,3 +1,4 @@
 # Entorno virtual
 venv/
 .bdRag/
+extracted_texts/
