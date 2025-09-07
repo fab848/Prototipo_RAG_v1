@@ -2,6 +2,10 @@
 venv/
 .bdRag/
 extracted_texts/
+__pycache__/
+uploaded_pdfs/
+personal_kb_lancedb/
 ocrtesting.json/
 ocrtesting.json
-__pycache__/extractor1.cpython-311.pyc
+
+
