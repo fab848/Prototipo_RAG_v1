@@ -56,6 +56,10 @@ uploaded_files = st.sidebar.file_uploader("Selecciona uno o más archivos PDF", 
 import glob
 pdf_dir = "./uploaded_pdfs"
 os.makedirs(pdf_dir, exist_ok=True)
+
+# ...existing code...
+
+# Actualizar la lista de PDFs después de la subida y procesamiento
 pdf_files = [os.path.basename(f) for f in glob.glob(os.path.join(pdf_dir, "*.pdf"))]
 st.sidebar.markdown("**PDFs almacenados:**")
 if pdf_files:
@@ -86,51 +90,46 @@ if pdf_files:
             st.session_state["qa_chain"] = None
             st.sidebar.info("No quedan PDFs. Base vectorial eliminada.")
 
-# --- CORRECCIÓN DE INDENTACIÓN: BLOQUE DE SUBIDA Y COMPRESIÓN DE PDFS ---
-if uploaded_files:
-    file_paths = []
-    for uploaded_file in uploaded_files:
-        file_path = os.path.join(pdf_dir, uploaded_file.name)
-        pdf_bytes = uploaded_file.getbuffer()
-        size_mb = len(pdf_bytes) / (1024 * 1024)
-        if size_mb > 39:
-            st.sidebar.error(f"El archivo {uploaded_file.name} excede el límite de 39MB y no será cargado. Por favor, comprímelo o divídelo antes de subirlo.")
-            continue
-        with open(file_path, "wb") as f:
-            f.write(pdf_bytes)
-        file_paths.append(file_path)
 
 if uploaded_files:
     st.sidebar.info("Procesando archivos subidos...")
     nuevos_file_paths = []
     for uploaded_file in uploaded_files:
         file_path = os.path.join(pdf_dir, uploaded_file.name)
-        # Solo procesar si el archivo no existe ya en la carpeta
-        if not os.path.exists(file_path):
-            pdf_bytes = uploaded_file.getbuffer()
-            size_mb = len(pdf_bytes) / (1024 * 1024)
-            if size_mb > 40:
-                st.sidebar.warning(f"El archivo {uploaded_file.name} excede 40MB. No se cargará.")
-                continue
-            with open(file_path, "wb") as f:
-                f.write(pdf_bytes)
-            nuevos_file_paths.append(file_path)
-        else:
-            st.sidebar.info(f"El archivo {uploaded_file.name} ya existe y no será reprocesado.")
+        pdf_bytes = uploaded_file.getbuffer()
+        size_mb = len(pdf_bytes) / (1024 * 1024)
+        if size_mb > 40:
+            st.sidebar.warning(f"El archivo {uploaded_file.name} excede 40MB. No se cargará.")
+            continue
+        with open(file_path, "wb") as f:
+            f.write(pdf_bytes)
+        nuevos_file_paths.append(file_path)
     if nuevos_file_paths:
         new_docs = processor.process_multiple_documents(nuevos_file_paths)
-        if new_docs:
+        # Cargar documentos ya indexados
+        db = lancedb.connect(f"./{KB_PATH}_lancedb")
+        try:
+            vectordb_existente = processor.load_existing_knowledge_base(db)
+            # Recuperar todos los documentos ya indexados
+            docs_existentes = vectordb_existente.similarity_search("", k=1000) if vectordb_existente else []
+        except Exception:
+            docs_existentes = []
+        # Combinar los nuevos con los existentes (evitar duplicados por nombre de archivo)
+        nuevos_sources = {doc.metadata.get("source") for doc in new_docs}
+        docs_final = new_docs[:]
+        for doc in docs_existentes:
+            if doc.metadata.get("source") not in nuevos_sources:
+                docs_final.append(doc)
+        if docs_final:
             st.sidebar.success(f"{len(new_docs)} documento(s) nuevos procesados. Actualizando base vectorial...")
-            processor.create_knowledge_base(new_docs, KB_PATH)
+            processor.create_knowledge_base(docs_final, KB_PATH)
             db = lancedb.connect(f"./{KB_PATH}_lancedb")
             vectordb = processor.load_existing_knowledge_base(db)
             qa_chain = processor.create_general_qa_system(vectordb)
             st.session_state["qa_chain"] = qa_chain
             st.sidebar.success("Base vectorial actualizada y chat recargado. Puedes consultar los nuevos documentos.")
         else:
-            st.sidebar.warning("No se pudo extraer texto de los archivos nuevos subidos.")
-    else:
-        st.sidebar.info("No hay archivos nuevos para procesar.")
+            st.sidebar.warning("No se pudo extraer texto de los archivos subidos.")
 
 st.set_page_config(page_title="Sistema RAG", page_icon="🧑‍💼", layout="centered")
 st.title("🧑‍💼 SISTEMA DE RECUPERACIÓN DE INFORMACIÓN BASADO EN RETRIEVAL AUGMENTED GENERATION (RAG) ")
